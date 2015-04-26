@@ -1,0 +1,115 @@
+---
+title: "MachineLearning"
+date: "Saturday, April 25, 2015"
+output: html_document
+---
+# **INTRODUCTION** 
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+*Loading Dataset*
+
+
+```{r}
+#Before doing this load Caret and Random forest packages
+library("caret", lib.loc="~/R/win-library/3.1")
+# Load Train Training Data
+trainingData <- read.csv('pml-training.csv',na.strings=c("NA","","#DIV/0!"))
+#Load Testing Data
+testingData <- read.csv('pml-testing.csv',na.strings=c("NA","","#DIV/0!"))
+```
+
+*Splitting of Data*
+
+```{r}
+#Set the seed to reproduce the result again
+set.seed(111)
+dim(trainingData)
+#Create two dataframes one is training and other is validation ,ignore Testing data frame as we already have it
+trainset <- createDataPartition(trainingData$classe, p = 0.8, list = FALSE)
+training <- trainingData[trainset,]
+validation <- trainingData[-trainset,]
+
+```
+
+*Remove unnecssary Data*
+
+```{r}
+## exclude near zero variance features
+nzvcol<- nearZeroVar(training)
+cleanedTraining <- training[, -nzvcol]
+cntlength <- sapply(cleanedTraining, function(x) {
+  sum(!(is.na(x) | x == ""))
+})
+
+nullcol <- names(cntlength[cntlength < 0.6 * length(cleanedTraining$classe)])
+
+#exclude the columns which are not required,especillay which are like string
+drops <- c("X", "user_name", "raw_timestamp_part_1", "raw_timestamp_part_2","cvtd_timestamp", "new_window", "num_window")
+excludecols <- c(drops, nullcol)
+cleanedTraining<-cleanedTraining[,!(names(cleanedTraining) %in% excludecols)]
+
+```
+
+*Model fit*
+
+Use random forest
+
+```{r}
+#Load Random Forest library
+library("randomForest", lib.loc="~/R/win-library/3.1")
+#Apply Random forest model(ModelFitting)
+trainModel=randomForest(classe ~. , data = cleanedTraining,method="class",importance = TRUE, ntrees = 10)
+```
+
+*Validatint the Training  model*
+```{r}
+#Predict test data using  train model
+trains<-predict(trainModel,cleanedTraining,type="class")
+print(confusionMatrix(trains, cleanedTraining$classe))
+```
+ 
+Acurracy is 100% on Training Set,Let us validate on Validation Model
+
+
+*Validating Validation Model*
+```{r}
+#Predict using Validation Model
+validate<-predict(trainModel,validation)
+print(confusionMatrix(validate, validation$classe))
+```
+  Accuracy is about 99.5 % on Validation model ,Which looks good.
+
+*Test set prediction*
+
+The Predicting Test Set with the analysed model :
+
+```{r}
+#Create Test Model
+test <- predict(trainModel,testingData)
+```
+
+Writing down the result,We then save the output to files according to instructions and post it to the submission page.
+```{r}
+answers <- as.vector(test)
+
+pml_write_files = function(x) {
+  n = length(x)
+  for (i in 1:n) {
+    filename = paste0("problem_id_", i, ".txt")
+    write.table(x[i], file = filename, quote = FALSE, row.names = FALSE, 
+                col.names = FALSE)
+  }
+}
+pml_write_files(answers)
+```
+
+
+
+
+
+
+
+
+
+
+
